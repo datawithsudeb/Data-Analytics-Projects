@@ -97,20 +97,24 @@ The dataset contains operational, financial, geographic, and behavioral attribut
 
 ## Raw Dataset Structure
 
-| Column Name                 | Description                     |
-| --------------------------- | ------------------------------- |
-| `trip_id`                   | Unique trip identifier          |
-| `driver_id`                 | Assigned driver identifier      |
-| `rider_id`                  | Rider identifier                |
-| `city`                      | City where the trip occurred    |
-| `pickup_lat` / `pickup_lng` | Pickup coordinates              |
-| `drop_lat` / `drop_lng`     | Drop-off coordinates            |
-| `distance_km`               | Total trip distance             |
-| `fare_amount`               | Fare charged                    |
-| `status`                    | Completed / Cancelled / No-Show |
-| `payment_method`            | Card / Cash / UPI / Wallet      |
-| `pickup_time`               | Pickup timestamp                |
-| `drop_time`                 | Drop-off timestamp              |
+The primary `uber_trips` sheet contains the following raw attributes:
+
+| Column Name      | Data Type  | Description                                              |
+| :--------------- | :--------- | :------------------------------------------------------- |
+| `trip_id`        | `INT`      | Unique identifier for each trip (Primary Key)            |
+| `driver_id`      | `INT`      | Unique identifier for the assigned driver                |
+| `rider_id`       | `INT`      | Unique identifier for the rider                          |
+| `city`           | `STRING`   | City where the trip took place                           |
+| `pickup_lat`     | `FLOAT`    | Latitude coordinate of the pickup location               |
+| `pickup_lng`     | `FLOAT`    | Longitude coordinate of the pickup location              |
+| `drop_lat`       | `FLOAT`    | Latitude coordinate of the drop-off location             |
+| `drop_lng`       | `FLOAT`    | Longitude coordinate of the drop-off location            |
+| `distance_km`    | `FLOAT`    | Distance of the trip in kilometres                       |
+| `fare_amount`    | `FLOAT`    | Fare charged for the trip                                |
+| `status`         | `STRING`   | Raw trip status (Completed / Cancelled / No-Show)        |
+| `payment_method` | `STRING`   | Mode of payment used (Card / Cash / UPI / Wallet)        |
+| `pickup_time`    | `DATETIME` | Timestamp when the rider was picked up                   |
+| `drop_time`      | `DATETIME` | Timestamp when the rider was dropped off                 |
 
 ---
 
@@ -158,23 +162,27 @@ These engineered features became the analytical foundation of the dashboards.
 
 ## Feature Engineering Logic
 
-| Feature                  | Purpose                                              |
-| ------------------------ | ---------------------------------------------------- |
-| `pickup_date`            | Extracts date from timestamp                         |
-| `year` / `month` / `day` | Enables trend analysis                               |
-| `hour`                   | Supports hourly demand analysis                      |
-| `time_bucket`            | Groups trips into Night, Morning, Afternoon, Evening |
-| `trip_duration_mint`     | Calculates ride duration                             |
-| `speed_kmph`             | Measures operational efficiency                      |
-| `completed_flag`         | Identifies successful trips                          |
-| `cancelled_flag`         | Identifies cancelled trips                           |
-| `No-Show_flag`           | Identifies rider no-shows                            |
-| `Revenue`                | Calculates realized revenue                          |
-| `revenue_per_km`         | Evaluates trip monetization efficiency               |
-| `distance_bucket`        | Categorizes trip lengths                             |
-| `fare_per_km`            | Measures pricing efficiency                          |
-| `trip_count`             | Calculates driver activity level                     |
-| `lost_revenue`           | Estimates revenue leakage                            |
+All feature engineering was performed in **Google Sheets** using formulas to enrich the raw dataset with calculated columns. The final enriched sheet structure is as follows:
+ 
+| Column Name          | Formula / Method                                                                                                                    | Description                                              |
+| :------------------- | :---------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
+| `pickup_date`        | `=INT(pickup_time)`                                                                                                                 | Date portion extracted from pickup timestamp             |
+| `year`               | `=YEAR(pickup_date)`                                                                                                                | Year of the trip                                         |
+| `month`              | `=MONTH(pickup_date)`                                                                                                               | Month of the trip (numeric)                              |
+| `day`                | `=DAY(pickup_date)`                                                                                                                 | Day of the month                                         |
+| `hour`               | `=HOUR(pickup_time)`                                                                                                                | Hour of pickup (0–23)                                    |
+| `time_bucket`        | `=IFS(hour<6,"Night", hour<12,"Morning", hour<18,"Afternoon", TRUE,"Evening")`                                                      | Categorized time-of-day segment                          |
+| `trip_duration_mint` | `=(drop_time - pickup_time) * 1440`                                                                                                 | Trip duration in minutes                                 |
+| `speed_kmph`         | `=distance_km / (trip_duration_mint / 60)`                                                                                          | Average speed in km/h                                    |
+| `completed_flag`     | `=IF(status="Completed", 1, 0)`                                                                                                     | Binary flag for completed trips                          |
+| `cancelled_flag`     | `=IF(status="Cancelled", 1, 0)`                                                                                                     | Binary flag for cancelled trips                          |
+| `No-Show_flag`       | `=IF(status="No-Show", 1, 0)`                                                                                                       | Binary flag for no-show trips                            |
+| `Revenue`            | `=IF(status="Completed", fare_amount, 0)`                                                                                           | Actual revenue earned (only for completed trips)         |
+| `revenue_per_km`     | `=IF(distance_km>0, Revenue/distance_km, 0)`                                                                                        | Revenue generated per kilometre                          |
+| `distance_bucket`    | `=IFS(distance_km<3,"Short (0-3 km)", distance_km<7,"Medium (3-7 km)", distance_km<15,"Long (7-15 km)", TRUE,"Very Long (15+ km)")` | Categorized distance segment                             |
+| `fare_per_km`        | `=IF(distance_km>0, fare_amount/distance_km, 0)`                                                                                    | Fare charged per kilometre                               |
+| `trip_count`         | `=COUNTIF(driver_id_range, driver_id)`                                                                                              | Total trips attributed to the driver                     |
+| `lost_revenue`       | `=IF(status<>"Completed", fare_amount, 0)`                                                                                          | Potential revenue lost due to cancellations and no-shows |
 
 ---
 
