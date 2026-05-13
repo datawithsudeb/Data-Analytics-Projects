@@ -8,8 +8,6 @@
 
 # Table of Contents
 
-# Table of Contents
-
 1. [Introduction](#1-introduction)
 2. [Business Objective](#2-business-objective)
 3. [Tools & Technologies](#3-tools--technologies)
